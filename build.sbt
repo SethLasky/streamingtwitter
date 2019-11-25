@@ -5,11 +5,12 @@ version := "0.1"
 scalaVersion := "2.12.8"
 
 val http4sVersion = "0.20.13"
+val circeVersion = "0.11.1"
 
 libraryDependencies ++= Seq(
-  "io.circe" %% "circe-generic" % "0.11.1",
   "io.circe" %% "circe-config" % "0.7.0",
-
+  "io.circe" %% "circe-generic" % circeVersion,
+  "io.circe" %% "circe-generic-extras" % circeVersion,
   "org.http4s" %% "http4s-blaze-client" % http4sVersion,
   "org.http4s" %% "http4s-circe" % http4sVersion,
   "org.http4s" %% "http4s-dsl" % http4sVersion,

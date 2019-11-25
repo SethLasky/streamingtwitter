@@ -8,10 +8,9 @@ import io.circe.{Decoder, Json}
 import jawnfs2._
 import io.circe.generic.auto._
 import org.http4s.client.dsl.Http4sClientDsl
+import org.typelevel.jawn.RawFacade
 
 trait StreamingClient[F[_]] extends Http4sClientDsl[IO] {
-
-  implicit val facade = io.circe.jawn.CirceSupportParser.facade
 
   def signRequest(consumerKey: String, consumerSecret: String, accessToken: String, accessSecret: String)(req: Request[F])(implicit ce: ConcurrentEffect[F], cs: ContextShift[F]) = {
     val consumer = oauth1.Consumer(consumerKey, consumerSecret)
@@ -19,15 +18,13 @@ trait StreamingClient[F[_]] extends Http4sClientDsl[IO] {
     oauth1.signRequest(req, consumer, callback = None, verifier = None, token = Some(token))
   }
 
-  private def streamJson(client: Client[F])(request: Request[F])(implicit ce: ConcurrentEffect[F], cs: ContextShift[F]): Stream[F, Json] =
+  private def streamJson(client: Client[F])(request: Request[F])(implicit ce: ConcurrentEffect[F], cs: ContextShift[F], facade: RawFacade[Json]): Stream[F, Json] =
     client.stream(request).flatMap(_.body.chunks.parseJsonStream)
 
-  private def decoder(implicit decode: Decoder[Tweet]): Pipe[F, Json, Either[Throwable, Tweet]] = _.flatMap { json =>
-    Stream.emit(decode(json.hcursor))
-  }
 
-  def streamTweets(client: Client[F])(request: Request[F])(implicit ce: ConcurrentEffect[F], cs: ContextShift[F]): Stream[F, Either[Throwable, Tweet]] =
+  def streamTweets(client: Client[F], decoder: Pipe[F, Json, Either[Throwable, Tweet]])(request: Request[F])(implicit ce: ConcurrentEffect[F], cs: ContextShift[F], facade: RawFacade[Json]): Stream[F, Either[Throwable, Tweet]] =
     streamJson(client)(request) through decoder
+
 }
 
 case class Tweet(text: String, entities: Entities)
