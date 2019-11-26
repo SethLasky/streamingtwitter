@@ -5,7 +5,7 @@ import java.io.File
 import cats.effect.concurrent.Ref
 import cats.effect.{Blocker, IO}
 import fs2.Stream
-import http.Hashtag
+import http.{Hashtag, Url}
 import org.http4s.client.dsl.Http4sClientDsl
 import org.scalatest.{Matchers, WordSpecLike}
 import util.TestUtils
@@ -54,22 +54,40 @@ class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[
       numberIO.unsafeRunSync() shouldBe 2
     }
 
-    "update the reference of hashtags" in {
+    "update the reference of hashtags and get the top hashtag" in {
 
       val hashtagIO = for {
         ref <- buildReference
-        _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("great"))))(ref)
-        _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("ok"))))(ref)
+        _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("great"))), ref)
+        _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("ok"))), ref)
         hashtag <- getTopHashtag(ref)
 
       } yield hashtag
       hashtagIO.unsafeRunSync() shouldBe "ok"
     }
 
+    "update the reference of urls and get the top url and the percentage of urls" in {
+      val urlIO = for {
+        ref <- buildReference
+        _ <- updateUrls(Some(List(Url("url1"), Url("url2"))), ref)
+        _ <- updateUrls(Some(List(Url("url1"), Url("url1"))), ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        url <- getTopUrl(ref)
+        percentage <- getUrlPercentage(ref)
+
+      } yield (url, percentage)
+      val (url, percentage) = urlIO.unsafeRunSync()
+      url shouldBe "url1"
+      percentage shouldBe 50.0
+    }
+
   }
   val emojis = List(Emoji("one", "〰", has_img_twitter = true), Emoji("two", "〽", has_img_twitter = true))
 
   def buildReference ={
-    Ref[IO].of(Reference(emojis, 0, 0, Map()))
+    Ref[IO].of(Reference(emojis, 0, 0, Map(), Map(), 0))
   }
 }
