@@ -21,7 +21,6 @@ trait StreamingClient[F[_]] extends Http4sClientDsl[IO] {
   private def streamJson(client: Client[F])(request: Request[F])(implicit ce: ConcurrentEffect[F], cs: ContextShift[F], facade: RawFacade[Json]): Stream[F, Json] =
     client.stream(request).flatMap(_.body.chunks.parseJsonStream)
 
-
   def streamTweets(client: Client[F], decoder: Pipe[F, Json, Either[Throwable, Tweet]])(request: Request[F])(implicit ce: ConcurrentEffect[F], cs: ContextShift[F], facade: RawFacade[Json]): Stream[F, Either[Throwable, Tweet]] =
     streamJson(client)(request) through decoder
 

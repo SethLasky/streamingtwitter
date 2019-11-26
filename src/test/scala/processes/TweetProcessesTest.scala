@@ -5,7 +5,7 @@ import java.io.File
 import cats.effect.concurrent.Ref
 import cats.effect.{Blocker, IO}
 import fs2.Stream
-import http.{Hashtag, Url}
+import http.{Hashtag, Media, Url}
 import org.http4s.client.dsl.Http4sClientDsl
 import org.scalatest.{Matchers, WordSpecLike}
 import util.TestUtils
@@ -58,6 +58,7 @@ class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[
 
       val hashtagIO = for {
         ref <- buildReference
+        < <- updateHashtags(None, ref)
         _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("great"))), ref)
         _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("ok"))), ref)
         hashtag <- getTopHashtag(ref)
@@ -69,6 +70,7 @@ class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[
     "update the reference of urls and get the top url and the percentage of urls" in {
       val urlIO = for {
         ref <- buildReference
+        _ <- updateUrls(None, ref)
         _ <- updateUrls(Some(List(Url("url1"), Url("url2"))), ref)
         _ <- updateUrls(Some(List(Url("url1"), Url("url1"))), ref)
         _ <- increaseTweetNumber(ref)
@@ -84,10 +86,28 @@ class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[
       percentage shouldBe 50.0
     }
 
+    "update the reference of photos and get the percentage of photos" in {
+      val photoIO = for {
+        ref <- buildReference
+        _ <- updatePhotos(None, ref)
+        _ <- updatePhotos(Some(List(Media("photo"), Media("somethingElse"))), ref)
+        _ <- updatePhotos(Some(List(Media("photo"), Media("photo"))), ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        percentage <- getPhotoPercentage(ref)
+
+      } yield percentage
+      photoIO.unsafeRunSync() shouldBe 50.0
+    }
+
   }
+
+
   val emojis = List(Emoji("one", "〰", has_img_twitter = true), Emoji("two", "〽", has_img_twitter = true))
 
   def buildReference ={
-    Ref[IO].of(Reference(emojis, 0, 0, Map(), Map(), 0))
+    Ref[IO].of(Reference(emojis, 0, 0, Map(), Map(), 0,0))
   }
 }

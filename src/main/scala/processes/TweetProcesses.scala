@@ -9,7 +9,7 @@ import fs2.{Pipe, Stream}
 import jawnfs2._
 import org.typelevel.jawn.RawFacade
 import cats.implicits._
-import http.{Hashtag, Url}
+import http.{Hashtag, Media, Url}
 
 trait TweetProcesses[F[_]] {
 
@@ -112,8 +112,24 @@ trait TweetProcesses[F[_]] {
     } yield percentage
 
 
+  def updatePhotos(mediaOption: Option[List[Media]], ref: Ref[IO, Reference]) =
+    ref.get.flatMap { reference =>
+      if (mediaOption.nonEmpty && mediaOption.get.exists(_.`type` == "photo")) ref.set(reference.copy(photoNumber = reference.photoNumber + 1)) else IO.unit
+
+    }
+
+  private def getPhotoNumber(ref: Ref[IO, Reference]) =
+    ref.get.map(_.photoNumber)
+
+
+  def getPhotoPercentage(ref: Ref[IO, Reference]) =
+    for {
+      photoNumber <- getPhotoNumber(ref)
+      tweetNumber <- getTweetNumber(ref)
+      percentage: Double = photoNumber.toDouble / tweetNumber.toDouble * 100
+    } yield percentage
 }
 
 case class Emoji(name: String = "No Name", unified: String, has_img_twitter: Boolean, number: Int = 0)
 
-case class Reference(emojis: List[Emoji], tweetNumber: Int, emojiNumber: Int, hashtags: Map[String, Int], urls: Map[String, Int], urlNumber: Int)
+case class Reference(emojis: List[Emoji], tweetNumber: Int, emojiNumber: Int, hashtags: Map[String, Int], urls: Map[String, Int], urlNumber: Int, photoNumber: Int)

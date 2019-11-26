@@ -26,7 +26,7 @@ object Engine extends IOApp with StreamingClient[IO] with TweetProcesses[IO] {
     val stream = for {
       client <- BlazeClientBuilder[IO](global).stream
       emojis <- Stream.resource(Blocker[IO]) flatMap getEmojiList(getClass.getResource("/emoji.json").getPath, decoder[IO, Emoji])
-      initialReference = Reference(emojis, 0, 0, Map(), Map(), 0)
+      initialReference = Reference(emojis, 0, 0, Map(), Map(), 0, 0)
       ref <- Stream.eval(Ref[IO].of(initialReference))
       twitterStream = (Stream.eval(IO.fromEither(ConfigFactory.load.as[TwitterConfig])) flatMap request flatMap streamTweets(client, decoder[IO, Tweet])).attempt
       tweetStream = twitterStream.map(_.flatten).filter(_.isRight).map(_.right.get)
@@ -54,6 +54,7 @@ object Engine extends IOApp with StreamingClient[IO] with TweetProcesses[IO] {
       _ <- updateEmoji(tweet.text, ref)
       _ <- updateHashtags(tweet.entities.hashtags, ref)
       _ <- updateUrls(tweet.entities.urls, ref)
+      _ <- updatePhotos(tweet.entities.media, ref)
     } yield IO.unit
 
 
