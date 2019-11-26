@@ -5,10 +5,10 @@ import java.io.File
 import cats.effect.concurrent.Ref
 import cats.effect.{Blocker, IO}
 import fs2.Stream
+import http.Hashtag
 import org.http4s.client.dsl.Http4sClientDsl
 import org.scalatest.{Matchers, WordSpecLike}
 import util.TestUtils
-
 import io.circe.generic.extras.auto._
 
 class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[IO] with Http4sClientDsl[IO] with TestUtils {
@@ -54,10 +54,22 @@ class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[
       numberIO.unsafeRunSync() shouldBe 2
     }
 
+    "update the reference of hashtags" in {
+
+      val hashtagIO = for {
+        ref <- buildReference
+        _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("great"))))(ref)
+        _ <- updateHashtags(Some(List(Hashtag("ok"), Hashtag("ok"))))(ref)
+        hashtag <- getTopHashtag(ref)
+
+      } yield hashtag
+      hashtagIO.unsafeRunSync() shouldBe "ok"
+    }
+
   }
   val emojis = List(Emoji("one", "〰", has_img_twitter = true), Emoji("two", "〽", has_img_twitter = true))
 
   def buildReference ={
-    Ref[IO].of(Reference(emojis, 0, 0))
+    Ref[IO].of(Reference(emojis, 0, 0, Map()))
   }
 }

@@ -29,8 +29,10 @@ trait StreamingClient[F[_]] extends Http4sClientDsl[IO] {
 
 case class Tweet(text: String, entities: Entities)
 
-case class Entities(urls: Option[List[Url]], media: Option[List[Media]])
+case class Entities(urls: Option[List[Url]], hashtags: Option[List[Hashtag]], media: Option[List[Media]])
 
 case class Url(expanded_url: String)
+
+case class Hashtag(text: String)
 
 case class Media(`type`: String)
