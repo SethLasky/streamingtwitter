@@ -9,7 +9,12 @@ import fs2.{Pipe, Stream}
 import jawnfs2._
 import org.typelevel.jawn.RawFacade
 import cats.implicits._
-import http.{Hashtag, Media, Url}
+import http.{EmojiStatus, Hashtag, Media, Status, Url}
+import io.circe.syntax._
+import org.http4s.implicits._
+import org.http4s.circe._
+import io.circe.generic.auto._
+
 import scala.concurrent.duration.MILLISECONDS
 
 trait TweetProcesses[F[_]] {
@@ -52,6 +57,18 @@ trait TweetProcesses[F[_]] {
     ref.get.map { reference =>
       reference.emojis.maxBy(_.number)
     }
+
+  private def getEmojiNumber(ref: Ref[IO, Reference]) =
+    ref.get.map(_.emojiNumber)
+
+  def getEmojiPercentage(ref: Ref[IO, Reference]) =
+    for {
+      photoNumber <- getEmojiNumber(ref)
+      tweetNumber <- getTweetNumber(ref)
+      percentage: Double = photoNumber.toDouble / tweetNumber.toDouble * 100
+    } yield percentage
+
+
 
   def increaseTweetNumber(ref: Ref[IO, Reference]) =
     ref.get.flatMap(reference => ref.set(reference.copy(tweetNumber = reference.tweetNumber + 1)))
@@ -130,7 +147,7 @@ trait TweetProcesses[F[_]] {
       percentage: Double = photoNumber.toDouble / tweetNumber.toDouble * 100
     } yield percentage
 
-  def getRate(ref: Ref[IO, Reference] )(implicit clock: Clock[IO]) ={
+  def getRate(ref: Ref[IO, Reference])(implicit clock: Clock[IO]) ={
     for {
       time <- clock.monotonic(MILLISECONDS)
       reference <- ref.get
@@ -142,6 +159,20 @@ trait TweetProcesses[F[_]] {
       minuteRate = secondRate * 60
       hourRate = minuteRate * 60
     } yield Rate(secondRate, minuteRate, hourRate)
+  }
+
+  def getStatus(ref: Ref[IO, Reference])(implicit clock: Clock[IO]) ={
+    for{
+      reference <- ref.get
+      numberOfTweets <- getTweetNumber(ref)
+      rate <- getRate(ref)
+      topEmoji <- getTopEmoji(ref)
+      emojiPercent <- getEmojiPercentage(ref)
+      topHashtag <- getTopHashtag(ref)
+      urlPercent <- getUrlPercentage(ref)
+      photoPercent <- getPhotoPercentage(ref)
+      topUrl <- getTopUrl(ref)
+    } yield Status(numberOfTweets, rate.second, rate.minute, rate.hour, EmojiStatus(topEmoji.name, topEmoji.unified), emojiPercent, topHashtag, urlPercent, photoPercent, topUrl).asJson
   }
 }
 

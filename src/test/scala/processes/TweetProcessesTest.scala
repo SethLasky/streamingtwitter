@@ -24,14 +24,20 @@ class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[
       val referenceIO = for {
         ref <- buildReference
         _ <- updateEmoji("Things 〰 and other things 〽 〽 〽", ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        percentage <- getEmojiPercentage(ref)
         refAfter <- ref.get
 
-      } yield refAfter
+      } yield (refAfter, percentage)
 
-      val reference = referenceIO.unsafeRunSync()
+      val (reference, percentage) = referenceIO.unsafeRunSync()
       reference.emojiNumber shouldBe 1
       reference.emojis.head.number shouldBe 1
       reference.emojis.last.number shouldBe 3
+      percentage shouldBe 25.0
     }
 
     "get the top emoji" in {
