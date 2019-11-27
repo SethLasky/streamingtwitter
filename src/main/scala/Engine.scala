@@ -1,6 +1,6 @@
 
 import cats.effect.concurrent.Ref
-import cats.effect.{Blocker, ExitCode, IO, IOApp}
+import cats.effect.{Blocker, Clock, ExitCode, IO, IOApp}
 import http.{StreamingClient, Tweet}
 import org.http4s.{Method, Request}
 import org.http4s.client.blaze.BlazeClientBuilder
@@ -16,17 +16,20 @@ import org.typelevel.jawn.RawFacade
 import processes.{Emoji, Reference, TweetProcesses}
 
 import scala.concurrent.ExecutionContext.global
+import scala.concurrent.duration.MILLISECONDS
 
 object Engine extends IOApp with StreamingClient[IO] with TweetProcesses[IO] {
 
   implicit lazy val facade: RawFacade[Json] = io.circe.jawn.CirceSupportParser.facade
   implicit lazy val customConfig: Configuration = Configuration.default.withDefaults
+  implicit lazy val clock: Clock[IO] = Clock.create[IO]
 
   def run(args: List[String]): IO[ExitCode] = {
     val stream = for {
       client <- BlazeClientBuilder[IO](global).stream
       emojis <- Stream.resource(Blocker[IO]) flatMap getEmojiList(getClass.getResource("/emoji.json").getPath, decoder[IO, Emoji])
-      initialReference = Reference(emojis, 0, 0, Map(), Map(), 0, 0)
+      startTime <- Stream.eval(clock.monotonic(MILLISECONDS))
+      initialReference = Reference(emojis, 0, 0, Map(), Map(), 0, 0, startTime)
       ref <- Stream.eval(Ref[IO].of(initialReference))
       twitterStream = (Stream.eval(IO.fromEither(ConfigFactory.load.as[TwitterConfig])) flatMap request flatMap streamTweets(client, decoder[IO, Tweet])).attempt
       tweetStream = twitterStream.map(_.flatten).filter(_.isRight).map(_.right.get)
@@ -56,7 +59,5 @@ object Engine extends IOApp with StreamingClient[IO] with TweetProcesses[IO] {
       _ <- updateUrls(tweet.entities.urls, ref)
       _ <- updatePhotos(tweet.entities.media, ref)
     } yield IO.unit
-
-
   }
 }

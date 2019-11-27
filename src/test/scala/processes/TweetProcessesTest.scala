@@ -10,6 +10,7 @@ import org.http4s.client.dsl.Http4sClientDsl
 import org.scalatest.{Matchers, WordSpecLike}
 import util.TestUtils
 import io.circe.generic.extras.auto._
+import scala.concurrent.duration._
 
 class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[IO] with Http4sClientDsl[IO] with TestUtils {
 
@@ -101,13 +102,28 @@ class TweetProcessesTest extends WordSpecLike with Matchers with TweetProcesses[
       } yield percentage
       photoIO.unsafeRunSync() shouldBe 50.0
     }
+    "get the rate of tweets at any given time" in {
+      val rateIO = for {
+        ref <- buildReference
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- increaseTweetNumber(ref)
+        _ <- IO.sleep(5 seconds)
+        rate <- getRate(ref)
+      } yield rate
 
+      rateIO.unsafeRunSync().second should be < 1.0
+    }
   }
 
 
   val emojis = List(Emoji("one", "〰", has_img_twitter = true), Emoji("two", "〽", has_img_twitter = true))
 
   def buildReference ={
-    Ref[IO].of(Reference(emojis, 0, 0, Map(), Map(), 0,0))
+    for{
+      startTime <- clock.monotonic(MILLISECONDS)
+      ref <- Ref[IO].of(Reference(emojis, 0, 0, Map(), Map(), 0, 0, startTime))
+    } yield ref
   }
 }

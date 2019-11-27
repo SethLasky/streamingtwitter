@@ -3,13 +3,14 @@ package processes
 import java.nio.file.Paths
 
 import cats.effect.concurrent.Ref
-import cats.effect.{Blocker, ConcurrentEffect, ContextShift, IO}
+import cats.effect.{Blocker, Clock, ConcurrentEffect, ContextShift, IO}
 import io.circe.Json
 import fs2.{Pipe, Stream}
 import jawnfs2._
 import org.typelevel.jawn.RawFacade
 import cats.implicits._
 import http.{Hashtag, Media, Url}
+import scala.concurrent.duration.MILLISECONDS
 
 trait TweetProcesses[F[_]] {
 
@@ -128,8 +129,24 @@ trait TweetProcesses[F[_]] {
       tweetNumber <- getTweetNumber(ref)
       percentage: Double = photoNumber.toDouble / tweetNumber.toDouble * 100
     } yield percentage
+
+  def getRate(ref: Ref[IO, Reference] )(implicit clock: Clock[IO]) ={
+    for {
+      time <- clock.monotonic(MILLISECONDS)
+      reference <- ref.get
+      startTime = reference.startTime
+      numberOfTweets = reference.tweetNumber
+      totalTime = time - startTime
+      rate: Double = numberOfTweets.toDouble / totalTime.toDouble
+      secondRate = rate * 1000
+      minuteRate = secondRate * 60
+      hourRate = minuteRate * 60
+    } yield Rate(secondRate, minuteRate, hourRate)
+  }
 }
 
 case class Emoji(name: String = "No Name", unified: String, has_img_twitter: Boolean, number: Int = 0)
 
-case class Reference(emojis: List[Emoji], tweetNumber: Int, emojiNumber: Int, hashtags: Map[String, Int], urls: Map[String, Int], urlNumber: Int, photoNumber: Int)
+case class Reference(emojis: List[Emoji], tweetNumber: Int, emojiNumber: Int, hashtags: Map[String, Int], urls: Map[String, Int], urlNumber: Int, photoNumber: Int, startTime: Long)
+
+case class Rate(second: Double, minute: Double, hour: Double)
